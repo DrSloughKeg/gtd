@@ -1,0 +1,44 @@
+.projects-late {
+    color: red;
+}
+
+.thoughts-thought .status {
+    cursor: pointer;
+}
+
+
+.thoughts-thought-status-needs-action {
+    background-color: #FDD170FF;
+    fill: #FDD170FF;
+}
+
+.thoughts-thought-status-in-progress {
+    background-color: #91d9ff;
+    fill: #91D9FFFF;
+}
+
+.thoughts-thought-status-completed  {
+    background-color: #d7ff91;
+    fill: #d7ff91;
+}
+
+.thoughts-thought-status-failed {
+    background-color: #ffb891;
+    fill: #ffb891;
+}
+
+.thoughts-thought-status-cancelled {
+    background-color: #f1f1f1;
+    fill: #f1f1f1;
+}
+
+.thoughts-category {
+
+}
+
+.thoughts-category ~ .thoughts-category::before {
+    content: ', ';
+}
+.go-thoughts-thought-list .x-grid-group-val-empty .x-grid-group-hd {
+    display: none;
+}
