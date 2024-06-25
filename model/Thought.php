@@ -91,11 +91,11 @@ class Thought extends AclItemEntity {
 	/** @var int Duration Estimated duration in seconds the thought takes to complete. */
 	public $estimatedDuration;
 
-	/** @var int Progress Defines the progress of this thought */
-	protected $progress = Progress::NeedsAction;
+	/** @var int State Defines the state of this thought */
+	protected $state = State::NeedsAction;
 
-	/** @var DateTime When the "progress" of either the thought or a specific participant was last updated. */
-	public $progressUpdated;
+	/** @var DateTime When the "state" of either the thought or a specific participant was last updated. */
+	public $stateUpdated;
 
 	/** @var string */
 	public $title;
@@ -263,9 +263,9 @@ class Thought extends AclItemEntity {
 		$this->recurrenceRule = $rrule;
 	}
 
-	public function getProgress(): string
+	public function getState(): string
 	{
-		return Progress::$db[$this->progress] ?? Progress::$db[1];
+		return State::$db[$this->state] ?? State::$db[1];
 	}
 
 	public function getTimeBooked(): ?int
@@ -274,17 +274,17 @@ class Thought extends AclItemEntity {
 	}
 
 	/**
-	 * Set progress status
+	 * Set state status
 	 *
-	 * @param string $value "needs-action" {@see Progress::$db}
+	 * @param string $value "needs-action" {@see State::$db}
 	 * @return void
 	 */
-	public function setProgress(string $value) {
-		$key = array_search($value, Progress::$db, true);
+	public function setState(string $value) {
+		$key = array_search($value, State::$db, true);
 		if($key === false) {
-			$this->setValidationError('progress', ErrorCode::INVALID_INPUT, 'Incorrect Progress value for thought: ' . $value);
+			$this->setValidationError('state', ErrorCode::INVALID_INPUT, 'Incorrect State value for thought: ' . $value);
 		} else
-			$this->progress = $key;
+			$this->state = $key;
 	}
 
 	public function setRecurrenceRuleEncoded($rrule) {
@@ -379,7 +379,7 @@ class Thought extends AclItemEntity {
 			})->addNumber('percentComplete', function(Criteria $criteria, $comparator, $value) {
 				$criteria->where('percentComplete', $comparator, $value);
 			})->add('complete', function(Criteria $criteria, $value) {
-				$criteria->where('progress', $value ? '=' : '!=', Progress::Completed);
+				$criteria->where('state', $value ? '=' : '!=', State::Completed);
 			})->add('scheduled', function(Criteria $criteria, $value) {
 				$criteria->where('start', $value ? 'IS NOT' : 'IS',null);
 			})->add('responsibleUserId', function(Criteria $criteria, $value){
@@ -387,15 +387,15 @@ class Thought extends AclItemEntity {
 					$criteria->where('responsibleUserId', '=',$value);
 				//}//
 			})
-			->add('progress', function(Criteria $criteria, $value){
+			->add('state', function(Criteria $criteria, $value){
 				if(!empty($value)) {
 					if(!is_array($value)) {
 						$value = [$value];
 					}
 					$value = array_map(function($el) {
-						return array_search($el, Progress::$db, true);
+						return array_search($el, State::$db, true);
 					}, $value);
-					$criteria->where('progress', '=',$value);
+					$criteria->where('state', '=',$value);
 				}
 			});
 
@@ -422,27 +422,27 @@ class Thought extends AclItemEntity {
 			$this->uid = UUID::v4();
 		}
 
-		if ($this->progress == Progress::Completed) {
+		if ($this->state == State::Completed) {
 			$this->percentComplete = 100;
 		}
 		if ($this->isModified('percentComplete')) {
 			if ($this->percentComplete == 100) {
-				$this->progress = Progress::Completed;
+				$this->state = State::Completed;
 
 				// Remove alert for creator of this comment. Other users will get a replaced alert below.
 				CoreAlert::deleteByEntity($this);
 
 
-			} else if ($this->percentComplete > 0 && $this->progress == Progress::NeedsAction) {
-				$this->progress = Progress::InProcess;
+			} else if ($this->percentComplete > 0 && $this->state == State::NeedsAction) {
+				$this->state = State::InProcess;
 			}
 		}
 
-		if ($this->isModified('progress')) {
-			$this->progressUpdated = new DateTime();
+		if ($this->isModified('state')) {
+			$this->stateUpdated = new DateTime();
 		}
 
-		if (!empty($this->recurrenceRule) && $this->progress == Progress::Completed) {
+		if (!empty($this->recurrenceRule) && $this->state == State::Completed) {
 			$next = $this->getNextRecurrence($this->getRecurrenceRule());
 			if ($next) {
 				$this->createNewThought($next);
@@ -451,9 +451,9 @@ class Thought extends AclItemEntity {
 			}
 		}
 
-		if($this->isModified('responsibleUserId') && !$this->isModified('progress')) {
-			// when assigned to someone else it's progress should be needs action
-			$this->progress = Progress::NeedsAction;
+		if($this->isModified('responsibleUserId') && !$this->isModified('state')) {
+			// when assigned to someone else it's state should be needs action
+			$this->state = State::NeedsAction;
 		}
 
 		if(!parent::internalSave()) {
@@ -599,19 +599,19 @@ class Thought extends AclItemEntity {
 
 		$values = $this->toArray();
 //		unset($values['id']);
-//		unset($values['progress']);
+//		unset($values['state']);
 //		unset($values['responsibleUserId']);
 //		unset($values['percentComplete']);
-//		unset($values['progressUpdated']);
+//		unset($values['stateUpdated']);
 //		unset($values['freeBusyStatus']);
 //		$nextThought = new Thought();
 //		$nextThought->setValues($values);
 
 		$nextThought = $this->copy();
-		$nextThought->progress = Progress::NeedsAction;
+		$nextThought->state = State::NeedsAction;
 		$nextThought->responsibleUserId = null;
 		$nextThought->percentComplete = 0;
-		$nextThought->progressUpdated = null;
+		$nextThought->stateUpdated = null;
 		$nextThought->freeBusyStatus = 'free';
 
 		$rrule = $this->getRecurrenceRule();
@@ -824,9 +824,9 @@ class Thought extends AclItemEntity {
 		}
 
 		if($comment->createdBy == $this->responsibleUserId) {
-			$this->progress = Progress::InProcess;
+			$this->state = State::InProcess;
 		} else {
-			$this->progress = Progress::NeedsAction;
+			$this->state = State::NeedsAction;
 		}
 
 		// make sure modified at is updated
